@@ -1,0 +1,139 @@
+patch ~/my_templates/puppet/manifests/overcloud_controller_pacemaker.pp < patches/overcloud_controller_pacemaker.patch
+
+cat << EOF > ~/my_templates/pre-deployment.yaml
+resource_registry:
+  OS::TripleO::ComputeExtraConfigPre: /home/stack/my_templates/extraconfig/compute-node-setup.yaml
+EOF
+
+cat << EOF >> ~/my_templates/pre-deployment.yaml
+  OS::TripleO::ControllerExtraConfigPre: /home/stack/my_templates/extraconfig/controller-node-setup.yaml
+EOF
+
+cat << EOF > ~/my_templates/extraconfig/compute-node-setup.yaml
+heat_template_version: 2014-10-16
+
+description: >
+  Example file to execute a script in the computes
+
+parameters:
+  server:
+    type: string
+    default: ''
+
+resources:
+
+  ExtraConfig:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      config: {get_file: /home/stack/my_templates/extraconfig/compute-node-setup.sh}
+
+  ExtraDeployments:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      server: {get_param: server}
+      config: {get_resource: ExtraConfig}
+      actions: ['CREATE', 'UPDATE']
+EOF
+
+cat << EOF > ~/my_templates/extraconfig/compute-node-setup.sh
+#!/bin/bash
+
+touch /root/compute_test
+
+EOF
+
+cat << EOF > ~/my_templates/extraconfig/controller-node-setup.yaml
+heat_template_version: 2014-10-16
+
+description: >
+  Example file to execute a script in the controllers
+
+parameters:
+  server:
+    type: string
+    default: ''
+
+resources:
+
+  ExtraConfig:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      config: {get_file: /home/stack/my_templates/extraconfig/controller-node-setup.sh}
+
+  ExtraDeployments:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      server: {get_param: server}
+      config: {get_resource: ExtraConfig}
+      actions: ['CREATE', 'UPDATE']
+EOF
+
+cat << EOF > ~/my_templates/extraconfig/controller-node-setup.sh
+#!/bin/bash
+mkdir -p /nfsshare/glance
+mkdir -p /nfsshare/cinder
+mkdir -p /nfsshare/nova
+#sed -i '/# volume_list = \[.*/a volume_list = []' /etc/lvm/lvm.conf
+dracut -H -f /boot/initramfs-$(uname -r).img $(uname -r)
+
+EOF
+
+cat << EOF > ~/my_templates/firstboot-environment.yaml
+resource_registry:
+  OS::TripleO::NodeUserData: /home/stack/my_templates/firstboot-config.yaml
+EOF
+
+cat << EOF > ~/my_templates/firstboot-config.yaml
+heat_template_version: 2014-10-16
+
+resources:
+  userdata:
+    type: OS::Heat::MultipartMime
+    properties:
+      parts:
+      - config: {get_resource: repo_config}
+
+  repo_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      config: {get_file: /home/stack/my_templates/node-setup.sh}
+
+outputs:
+  OS::stack_id:
+    value: {get_resource: userdata}
+EOF
+
+cat << EOF > ~/my_templates/node-setup.sh
+#!/bin/bash
+
+#curl 'http://172.16.0.1:81/openstack.repo' -o '/etc/yum.repos.d/openstack.repo';
+
+# Permit root login over SSH
+sed -i 's/.*ssh-rsa/ssh-rsa/' /root/.ssh/authorized_keys
+sed -i 's/PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+sed -i 's/ChallengeResponseAuthentication.*/ChallengeResponseAuthentication yes/g' /etc/ssh/sshd_config
+
+systemctl restart sshd
+
+# Update the root password to something we know
+echo redhat | sudo passwd root --stdin
+
+#yum install -y device-mapper-multipath
+
+#cat << FOE > /etc/multipath.conf
+#defaults {
+#        find_multipaths yes
+#        user_friendly_names yes
+#}
+
+
+#blacklist {
+#}
+#FOE
+
+#systemctl start  multipathd.service
+#systemctl enable multipathd.service
+EOF

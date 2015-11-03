@@ -1,0 +1,24 @@
+heat_template_version: 2014-10-16
+
+description: >
+  Example file to execute a script in the computes
+
+parameters:
+  server:
+    type: string
+    default: ''
+
+resources:
+
+  ExtraConfig:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: script
+      config: {get_file: /home/stack/my_templates/extraconfig/compute-node-setup.sh}
+
+  ExtraDeployments:
+    type: OS::Heat::SoftwareDeployment
+    properties:
+      server: {get_param: server}
+      config: {get_resource: ExtraConfig}
+      actions: ['CREATE', 'UPDATE']

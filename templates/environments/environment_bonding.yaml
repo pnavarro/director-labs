@@ -1,0 +1,103 @@
+# Enable the creation of Neutron networks for isolated Overcloud
+# traffic and configure each role to assign ports (related
+# to that role) on these networks.
+resource_registry:
+  OS::TripleO::Network::External: ../network/external.yaml
+  OS::TripleO::Network::InternalApi: ../network/internal_api.yaml
+  OS::TripleO::Network::StorageMgmt: ../network/noop.yaml
+  OS::TripleO::Network::Storage: ../network/storage.yaml
+  OS::TripleO::Network::Tenant: ../network/tenant.yaml
+
+  # Port assignments for the VIPs
+  OS::TripleO::Network::Ports::ExternalVipPort: ../network/ports/vip.yaml
+  OS::TripleO::Network::Ports::InternalApiVipPort: ../network/ports/vip.yaml
+  OS::TripleO::Network::Ports::StorageVipPort: ../network/ports/vip.yaml
+  OS::TripleO::Network::Ports::TenantVipPort: ../network/ports/vip.yaml
+  OS::TripleO::Network::Ports::RedisVipPort: ../network/ports/vip.yaml
+
+  # Port assignments for the controller role
+  OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external.yaml
+  OS::TripleO::Controller::Ports::InternalApiPort: ../network/ports/internal_api.yaml
+  OS::TripleO::Controller::Ports::StoragePort: ../network/ports/storage.yaml
+  OS::TripleO::Controller::Ports::StorageMgmtPort: ../network/ports/noop.yaml
+  OS::TripleO::Controller::Ports::TenantPort: ../network/ports/tenant.yaml
+
+  # Port assignments for the compute role
+  OS::TripleO::Compute::Ports::InternalApiPort: ../network/ports/internal_api.yaml
+  OS::TripleO::Compute::Ports::StoragePort: ../network/ports/storage.yaml
+  OS::TripleO::Compute::Ports::TenantPort: ../network/ports/tenant.yaml
+
+  # Port assignments for service virtual IPs for the controller role
+  OS::TripleO::Controller::Ports::RedisVipPort: ../network/ports/vip.yaml
+
+  # NIC Configs for our roles
+  OS::TripleO::Compute::Net::SoftwareConfig: ../network/config/bond-with-vlans/compute.yaml
+  OS::TripleO::Controller::Net::SoftwareConfig: ../network/config/bond-with-vlans/controller.yaml
+
+  OS::TripleO::ComputeExtraConfigPre: ../extraconfig/compute-node-setup.yaml
+  OS::TripleO::ControllerExtraConfigPre: ../extraconfig/controller-node-setup.yaml
+
+  OS::TripleO::NodeUserData: ../firstboot-config.yaml
+
+parameter_defaults:
+  NeutronExternalNetworkBridge: "br-ex"
+  InternalApiNetCidr: 172.16.1.0/24
+  StorageNetCidr: 172.16.2.0/24
+  StorageMgmtNetCidr: 172.16.3.0/24
+  TenantNetCidr: 172.16.4.0/24
+  ExternalNetCidr: 172.16.5.0/24
+  InternalApiAllocationPools: [{'start':'172.16.1.10', 'end': '172.16.1.100'}]
+  StorageAllocationPools: [{'start':'172.16.2.10', 'end': '172.16.2.200'}]
+  StorageMgmtAllocationPools: [{'start':'172.16.3.10', 'end': '172.16.3.200'}]
+  TenantAllocationPools: [{'start':'172.16.4.10', 'end': '172.16.4.200'}]
+  ExternalAllocationPools: [{'start':'172.16.5.10', 'end': '172.16.5.200'}]
+  InternalApiNetworkVlanID: 4041
+  StorageNetworkVlanID: 4042
+  StorageMgmtNetworkVlanID: 4043
+  TenantNetworkVlanID: 4044
+  ExternalNetworkVlanID: 168
+  # CIDR subnet mask length for provisioning network
+  ControlPlaneSubnetCidr: "24"
+  ControlPlaneDefaultRoute: 172.16.0.1
+  # Generally the IP of the Undercloud
+  EC2MetadataIp: 172.16.0.1
+  # Define the DNS servers (maximum 2) for the overcloud nodes
+  DnsServers: ["172.16.0.1"]
+  CinderEnableIscsiBackend: false
+  CinderEnableNfsBackend: true
+  CinderNfsMountOptions: 'retry=1'
+  #CinderNfsServers: '10.2.1.16:/ifs/Openstack/cinder'
+  GlanceBackend: file
+  #GlanceFilePcmkDevice: '10.2.1.16:/ifs/Openstack/glance'
+  GlanceFilePcmkManage: true
+  GlanceFilePcmkOptions: context=system_u:object_r:glance_var_lib_t:s0
+  GlanceFilePcmkFstype: nfs
+  ServiceNetMap:
+    NeutronTenantNetwork: tenant
+    CeilometerApiNetwork: internal_api
+    MongoDbNetwork: internal_api
+    CinderApiNetwork: internal_api
+    CinderIscsiNetwork: storage
+    GlanceApiNetwork: storage
+    GlanceRegistryNetwork: internal_api
+    KeystoneAdminApiNetwork: ctlplane # allows undercloud to config endpoints
+    KeystonePublicApiNetwork: internal_api
+    NeutronApiNetwork: internal_api
+    HeatApiNetwork: internal_api
+    NovaApiNetwork: internal_api
+    NovaMetadataNetwork: internal_api
+    NovaVncProxyNetwork: internal_api
+    SwiftMgmtNetwork: storage_mgmt
+    SwiftProxyNetwork: storage
+    HorizonNetwork: internal_api
+    MemcachedNetwork: internal_api
+    RabbitMqNetwork: internal_api
+    RedisNetwork: internal_api
+    MysqlNetwork: internal_api
+    CephClusterNetwork: storage_mgmt
+    CephPublicNetwork: storage
+    ControllerHostnameResolveNetwork: internal_api
+    ComputeHostnameResolveNetwork: internal_api
+    BlockStorageHostnameResolveNetwork: internal_api
+    ObjectStorageHostnameResolveNetwork: internal_api
+    CephStorageHostnameResolveNetwork: storage
